@@ -1,0 +1,10 @@
+name = "Crypto"
+version = "0.1.0"
+defaultTargets = ["crypto"]
+
+[[lean_lib]]
+name = "Crypto"
+
+[[lean_exe]]
+name = "crypto"
+root = "Main"
