@@ -9,7 +9,8 @@ A formally verified cryptography library implemented in Lean 4. Cryptographic pr
 ```bash
 export PATH="$HOME/.elan/bin:$PATH"
 lake build
-lake build Crypto.Classical.Vigenere.Tests  # Run tests
+lake build Crypto.Classical.Vigenere.Tests  # Run Vigenère tests
+lake build Crypto.Stream.ChaCha20.Tests     # Run ChaCha20 tests
 ```
 
 ## Project Structure
@@ -19,12 +20,18 @@ Crypto/
 ├── Basic.lean                    -- Core types: Alphabet, Cipher, InvertibleCipher
 ├── Char.lean                     -- Character ↔ Alphabet conversions
 ├── ModArith.lean                 -- Modular arithmetic lemmas
-└── Classical/
-    └── Vigenere/
+├── Classical/
+│   └── Vigenere/
+│       ├── Spec.lean             -- SPECIFICATION (inspect this)
+│       ├── Impl.lean             -- Implementation
+│       ├── Correctness.lean      -- Proofs: impl matches spec
+│       └── Tests.lean            -- Test vectors
+└── Stream/
+    └── ChaCha20/
         ├── Spec.lean             -- SPECIFICATION (inspect this)
         ├── Impl.lean             -- Implementation
         ├── Correctness.lean      -- Proofs: impl matches spec
-        └── Tests.lean            -- Test vectors
+        └── Tests.lean            -- Test vectors (RFC 8439)
 ```
 
 ---
@@ -96,6 +103,88 @@ HELLO + D (Caesar shift 3) = KHOOR   ✓
 
 ---
 
+## ChaCha20 Stream Cipher
+
+### Verification Approach
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  SPECIFICATION (User inspects this - ~80 lines)             │
+│  quarterRound: a += b; d ^= a; d <<<= 16; ...               │
+│  block: 10 double rounds + add initial state                │
+│  encrypt: plaintext XOR keystream                           │
+└─────────────────────────────────────────────────────────────┘
+                         │
+                         │ proven equal (Correctness.lean)
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│  IMPLEMENTATION (Trust via proofs)                          │
+│  Array-based, tail-recursive, with keystream caching        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### What to Inspect (Spec.lean)
+
+The core ChaCha20 specification:
+
+```lean
+/-- Rotate left by n bits -/
+def rotl (x : Word) (n : UInt32) : Word :=
+  (x <<< n) ||| (x >>> (32 - n))
+
+/-- Quarter round: the complete ChaCha20 primitive -/
+def quarterRound (a b c d : Word) : Word × Word × Word × Word :=
+  let a := a + b; let d := rotl (d ^^^ a) 16
+  let c := c + d; let b := rotl (b ^^^ c) 12
+  let a := a + b; let d := rotl (d ^^^ a) 8
+  let c := c + d; let b := rotl (b ^^^ c) 7
+  (a, b, c, d)
+
+/-- ChaCha20 block function: 20 rounds + add initial state -/
+def block (key : Key) (counter : Counter) (nonce : Nonce) : State :=
+  let initial := initState key counter nonce
+  let final := nRounds 10 initial
+  addStates final initial
+
+/-- Encrypt/decrypt: XOR with keystream -/
+def encryptByte (key : Key) (nonce : Nonce) (msg : List UInt8) (i : Nat) : UInt8 :=
+  msg[i] ^^^ keystreamByte key nonce i
+```
+
+**Verify**: Does this match RFC 8439? (Yes: quarter round operations, 10 double rounds, XOR encryption)
+
+### Proven Theorems (Correctness.lean)
+
+```lean
+-- Quarter round is identical between impl and spec
+theorem quarterRound_correct (a b c d : Word) :
+    quarterRound a b c d = Spec.quarterRound a b c d := rfl
+
+-- Block function produces same state
+theorem block_correct (key : Key) (counter : Word) (nonce : Nonce) :
+    toSpecState (blockArray key counter nonce) =
+    Spec.block (keyToSpec key) counter (nonceToSpec nonce)
+
+-- Roundtrip property (XOR self-inverse)
+theorem roundtrip (key : Key) (nonce : Nonce) (msg : Array UInt8) :
+    decrypt key nonce (encrypt key nonce msg) = msg
+
+-- Encrypt equals decrypt
+theorem encrypt_eq_decrypt (key : Key) (nonce : Nonce) (msg : Array UInt8) :
+    encrypt key nonce msg = decrypt key nonce msg := rfl
+```
+
+### Test Results (Tests.lean)
+
+```
+Quarter Round Test (RFC 8439 2.1.1):     PASS ✓
+Roundtrip Test:                          PASS ✓
+XOR Self-Inverse Test:                   PASS ✓
+Multi-block (200 bytes):                 PASS ✓
+```
+
+---
+
 ## Implementation Progress
 
 | Component | Status |
@@ -105,6 +194,7 @@ HELLO + D (Caesar shift 3) = KHOOR   ✓
 | Character Utilities (Char.lean) | ✅ Complete |
 | Modular Arithmetic (ModArith.lean) | ✅ Complete |
 | **Vigenère Cipher** | ✅ Complete |
+| **ChaCha20 Cipher** | ✅ Complete |
 
 ---
 
