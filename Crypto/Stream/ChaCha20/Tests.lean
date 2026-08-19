@@ -36,7 +36,7 @@ def bytesToHex (bs : List UInt8) : String :=
   let hexDigit (n : UInt8) : Char :=
     if n < 10 then Char.ofNat (48 + n.toNat)
     else Char.ofNat (87 + n.toNat)
-  String.mk (bs.flatMap fun b => [hexDigit (b / 16), hexDigit (b % 16)])
+  String.ofList (bs.flatMap fun b => [hexDigit (b / 16), hexDigit (b % 16)])
 
 /-- Convert 4 bytes to UInt32 (little-endian) -/
 def bytesToWord (b0 b1 b2 b3 : UInt8) : UInt32 :=
@@ -76,22 +76,22 @@ def nonceFromBytes (bs : List UInt8) : Nonce :=
 
 /-! ## RFC 8439 Section 2.3.2 - ChaCha20 Block Function Test Vector -/
 
-/-- Test key: all zeros except key[0] = 0x00...01 -/
+/-- RFC 8439 Section 2.3.2 key. -/
 def testKey1 : Key :=
-  keyFromBytes (hexToBytes "0000000000000000000000000000000000000000000000000000000000000001")
+  keyFromBytes (hexToBytes "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")
 
-/-- Test nonce: 0x000000000000000000000002 -/
+/-- RFC 8439 Section 2.3.2 nonce. -/
 def testNonce1 : Nonce :=
-  nonceFromBytes (hexToBytes "000000000000000000000002")
+  nonceFromBytes (hexToBytes "000000090000004a00000000")
 
 /-- Counter = 1 -/
 def testCounter1 : UInt32 := 1
 
--- Test the block function output (use #eval! to allow sorry-dependent code)
+-- Test the block function output.
 #eval!
   let state := blockArray testKey1 testCounter1 testNonce1
-  -- First word should be 0x9f74a669
-  state.arr[0]! == 0x9f74a669
+  -- First serialized word is 10 f1 e7 e4 (little-endian word 0xe4e7f110).
+  state.arr[0]! == 0xe4e7f110
 -- Expected: true
 
 /-! ## RFC 8439 Section 2.4.2 - Encryption Test Vector -/
@@ -112,7 +112,7 @@ def testPlaintext : List UInt8 :=
 def expectedCiphertext : List UInt8 :=
   hexToBytes "6e2e359a2568f98041ba0728dd0d6981e97e7aec1d4360c20a27afccfd9fae0bf91b65c5524733ab8f593dabcd62b3571639d624e65152ab8f530c359f0861d807ca0dbf500d6a6156a38e088a22b65e52bc514d16ccf806818ce91ab77937365af90bbf74a35be6b40b8eedf2785e42874d"
 
--- Test encryption (use #eval! to allow sorry-dependent code)
+-- Test encryption.
 #eval!
   let ciphertext := encryptList testKey2 testNonce2 testPlaintext
   let expected := expectedCiphertext

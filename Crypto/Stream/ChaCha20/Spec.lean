@@ -184,7 +184,9 @@ def stateToBytes (s : State) : Fin 64 → UInt8 := fun i =>
 
 /-- Generate keystream byte at position pos -/
 def keystreamByte (key : Key) (nonce : Nonce) (pos : Nat) : UInt8 :=
-  let blockNum : Counter := (pos / 64).toUInt32
+  -- RFC 8439 reserves block counter 0 for the Poly1305 one-time key and
+  -- starts payload encryption at counter 1.
+  let blockNum : Counter := (pos / 64).toUInt32 + 1
   let byteInBlock : Fin 64 := ⟨pos % 64, by omega⟩
   let blockState := block key blockNum nonce
   stateToBytes blockState byteInBlock
@@ -198,6 +200,15 @@ def encryptByte (key : Key) (nonce : Nonce) (plaintext : List UInt8) (i : Nat)
 def decryptByte (key : Key) (nonce : Nonce) (ciphertext : List UInt8) (i : Nat)
     (hi : i < ciphertext.length) : UInt8 :=
   ciphertext[i] ^^^ keystreamByte key nonce i
+
+/-- Whole-message specification over arrays. -/
+def encrypt (key : Key) (nonce : Nonce) (plaintext : Array UInt8) : Array UInt8 :=
+  Array.ofFn (n := plaintext.size) fun i =>
+    plaintext[i.val] ^^^ keystreamByte key nonce i.val
+
+/-- ChaCha20 decryption is the same pointwise XOR operation. -/
+def decrypt (key : Key) (nonce : Nonce) (ciphertext : Array UInt8) : Array UInt8 :=
+  encrypt key nonce ciphertext
 
 /-! ## Spec properties -/
 

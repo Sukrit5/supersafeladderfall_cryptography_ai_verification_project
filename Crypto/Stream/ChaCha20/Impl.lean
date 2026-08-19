@@ -123,6 +123,13 @@ theorem applyQRArrayUnchecked_size (s : StateArray) (ai bi ci di : Nat)
   repeat rw [Array.size_set!_of_lt]
   all_goals simp_all
 
+/-- A quarter round with the 16-word state invariant carried structurally. -/
+def applyQRValid (s : ValidState) (ai bi ci di : Fin 16) : ValidState :=
+  ⟨applyQRArrayUnchecked s.arr ai.val bi.val ci.val di.val,
+   applyQRArrayUnchecked_size s.arr ai.val bi.val ci.val di.val
+     (by rw [s.size_eq]; exact ai.isLt) (by rw [s.size_eq]; exact bi.isLt)
+     (by rw [s.size_eq]; exact ci.isLt) (by rw [s.size_eq]; exact di.isLt) ▸ s.size_eq⟩
+
 /-- Column round on array: QR on each column
     Indices: (0,4,8,12), (1,5,9,13), (2,6,10,14), (3,7,11,15) -/
 @[inline]
@@ -165,6 +172,15 @@ theorem diagonalRoundArray_size (s : StateArray) (hs : s.size = 16) :
     rw [applyQRArrayUnchecked_size] <;> omega
   rw [applyQRArrayUnchecked_size] <;> omega
 
+def columnRoundValid (s : ValidState) : ValidState :=
+  applyQRValid (applyQRValid (applyQRValid (applyQRValid s 0 4 8 12) 1 5 9 13) 2 6 10 14) 3 7 11 15
+
+def diagonalRoundValid (s : ValidState) : ValidState :=
+  applyQRValid (applyQRValid (applyQRValid (applyQRValid s 0 5 10 15) 1 6 11 12) 2 7 8 13) 3 4 9 14
+
+def doubleRoundValid (s : ValidState) : ValidState :=
+  diagonalRoundValid (columnRoundValid s)
+
 /-- Double round on array = diagonal ∘ column -/
 @[inline]
 def doubleRoundArray (s : StateArray) : StateArray :=
@@ -191,6 +207,12 @@ theorem nRoundsArrayTR_size (n : Nat) (s : StateArray) (hs : s.size = 16) :
     simp only [nRoundsArrayTR]
     exact ih _ (doubleRoundArray_size s hs)
 
+/-- Tail-recursive rounds with the 16-word invariant carried structurally. -/
+def nRoundsState : Nat → ValidState → ValidState
+  | 0, s => s
+  | n + 1, s =>
+      nRoundsState n (doubleRoundValid s)
+
 /-- Add two state arrays element-wise -/
 @[inline]
 def addArrays (s1 s2 : StateArray) : StateArray :=
@@ -206,10 +228,9 @@ theorem addArrays_size (s1 s2 : StateArray) (h1 : s1.size = 16) (h2 : s2.size = 
     Computes: initial + nRounds(10, initial) -/
 def blockArray (key : Key) (counter : Word) (nonce : Nonce) : ValidState :=
   let initial := initStateArray key counter nonce
-  let final := nRoundsArrayTR 10 initial.arr
-  let result := addArrays final initial.arr
-  ⟨result, addArrays_size final initial.arr
-    (nRoundsArrayTR_size 10 initial.arr initial.size_eq) initial.size_eq⟩
+  let final := nRoundsState 10 initial
+  let result := addArrays final.arr initial.arr
+  ⟨result, addArrays_size final.arr initial.arr final.size_eq initial.size_eq⟩
 
 /-! ## Serialization -/
 
@@ -218,15 +239,10 @@ def blockArray (key : Key) (counter : Word) (nonce : Nonce) : ValidState :=
 def wordToByte (w : Word) (pos : Nat) : UInt8 :=
   (w >>> (pos * 8).toUInt32).toUInt8
 
-/-- State to 64 bytes (little-endian)
-    Uses fold for cache-friendly sequential access -/
+/-- State to 64 bytes (little-endian). -/
 def stateToBytesArray (s : ValidState) : Array UInt8 :=
-  let result := Array.mkEmpty 64
-  s.arr.foldl (init := result) fun acc word =>
-    acc.push (wordToByte word 0)
-       |>.push (wordToByte word 1)
-       |>.push (wordToByte word 2)
-       |>.push (wordToByte word 3)
+  Array.ofFn (n := 64) fun i =>
+    wordToByte s.arr[i.val / 4]! (i.val % 4)
 
 /-- Helper: pushing 4 elements increases size by 4 -/
 theorem push4_size (arr : Array UInt8) (a b c d : UInt8) :
@@ -236,21 +252,7 @@ theorem push4_size (arr : Array UInt8) (a b c d : UInt8) :
 /-- Proof that stateToBytesArray produces exactly 64 bytes -/
 theorem stateToBytesArray_size (s : ValidState) :
     (stateToBytesArray s).size = 64 := by
-  unfold stateToBytesArray
-  -- Use Array.foldl_induction with motive: after processing i words, size = i*4
-  have h : (Array.foldl (init := Array.mkEmpty 64) (fun acc word =>
-      acc.push (wordToByte word 0)
-         |>.push (wordToByte word 1)
-         |>.push (wordToByte word 2)
-         |>.push (wordToByte word 3)) s.arr).size = s.arr.size * 4 := by
-    apply Array.foldl_induction (motive := fun i (acc : Array UInt8) => acc.size = i * 4)
-    · -- Base case: (Array.mkEmpty 64).size = 0
-      rfl
-    · -- Inductive step
-      intro i b hb
-      simp only [Array.size_push]
-      omega
-  rw [h, s.size_eq]
+  simp [stateToBytesArray]
 
 /-! ## Keystream Generation -/
 
@@ -268,6 +270,14 @@ theorem keystreamBlock_size (key : Key) (nonce : Nonce) (blockNum : Word) :
     (keystreamBlock key nonce blockNum).size = 64 := by
   simp [keystreamBlock, stateToBytesArray_size]
 
+/-- Select a cached block on a hit, or generate the requested block on a miss. -/
+def selectKeystream (key : Key) (nonce : Nonce) (currentBlockNum : Word)
+    (ks : Array UInt8) (ksBlockNum : Word) : Array UInt8 × Word :=
+  if currentBlockNum != ksBlockNum ∨ ks.size = 0 then
+    (keystreamBlock key nonce currentBlockNum, currentBlockNum)
+  else
+    (ks, ksBlockNum)
+
 /-! ## Encryption with Caching -/
 
 /-- Encrypt/decrypt a message (XOR with keystream)
@@ -280,11 +290,7 @@ def encryptCore (key : Key) (nonce : Nonce) (msg : Array UInt8)
     let currentBlockNum := (i / 64).toUInt32 + 1
     let byteInBlock := i % 64
     -- Check if we need a new keystream block
-    let (ks', ksBlockNum') :=
-      if currentBlockNum != ksBlockNum ∨ ks.size = 0 then
-        (keystreamBlock key nonce currentBlockNum, currentBlockNum)
-      else
-        (ks, ksBlockNum)
+    let (ks', ksBlockNum') := selectKeystream key nonce currentBlockNum ks ksBlockNum
     let encrypted := msg[i] ^^^ ks'[byteInBlock]!
     encryptCore key nonce msg (i + 1) (acc.push encrypted) ks' ksBlockNum'
   else
@@ -309,9 +315,7 @@ theorem encryptCore_size (key : Key) (nonce : Nonce) (msg : Array UInt8)
       have hdeq : msg.size - (i + 1) = d - 1 := by omega
       -- The result doesn't depend on which keystream branch, only on structure
       -- We use generalize to abstract over the complex expressions
-      generalize hksNew : (if ((i / 64).toUInt32 + 1 != ksBlockNum) = true ∨ ks.size = 0
-        then (keystreamBlock key nonce ((i / 64).toUInt32 + 1), (i / 64).toUInt32 + 1)
-        else (ks, ksBlockNum)) = ksPair
+      generalize hksNew : selectKeystream key nonce ((i / 64).toUInt32 + 1) ks ksBlockNum = ksPair
       have hrec := ih (d - 1) hless (i + 1)
         (acc.push (msg[i] ^^^ ksPair.fst[i % 64]!))
         ksPair.fst
@@ -333,7 +337,10 @@ theorem encryptCore_size (key : Key) (nonce : Nonce) (msg : Array UInt8)
 
 /-- Encrypt/decrypt entry point -/
 def encrypt (key : Key) (nonce : Nonce) (msg : Array UInt8) : Array UInt8 :=
-  encryptCore key nonce msg 0 (Array.mkEmpty msg.size) #[] 0
+  Array.ofFn (n := msg.size) fun i =>
+    let blockNum := (i.val / 64).toUInt32 + 1
+    let block := keystreamBlock key nonce blockNum
+    msg[i.val] ^^^ block[i.val % 64]'(by rw [keystreamBlock_size]; omega)
 
 /-- Decrypt is the same as encrypt (XOR is self-inverse) -/
 def decrypt (key : Key) (nonce : Nonce) (msg : Array UInt8) : Array UInt8 :=
@@ -361,9 +368,7 @@ def decryptList (key : Key) (nonce : Nonce) (msg : List UInt8) : List UInt8 :=
 
 theorem encrypt_size (key : Key) (nonce : Nonce) (msg : Array UInt8) :
     (encrypt key nonce msg).size = msg.size := by
-  simp only [encrypt]
-  rw [encryptCore_size (hi := Nat.zero_le _)]
-  simp
+  simp [encrypt]
 
 theorem decrypt_size (key : Key) (nonce : Nonce) (msg : Array UInt8) :
     (decrypt key nonce msg).size = msg.size :=
