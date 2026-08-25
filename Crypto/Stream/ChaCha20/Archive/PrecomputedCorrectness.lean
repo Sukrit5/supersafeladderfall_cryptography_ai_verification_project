@@ -11,7 +11,7 @@
 -/
 
 import Crypto.Stream.ChaCha20.Spec
-import Crypto.Stream.ChaCha20.Impl
+import Crypto.Stream.ChaCha20.Archive.PrecomputedImpl
 
 namespace Crypto.ChaCha20
 
@@ -278,15 +278,6 @@ theorem doubleRoundArray_correct (a : StateArray) (hsize : a.size = 16) :
   rw [diagonalRoundArray_correct _ (columnRoundArray_size a hsize),
     columnRoundArray_correct a hsize]
 
-theorem nRoundsArrayTR_correct (n : Nat) (a : StateArray) (hsize : a.size = 16) :
-    arrayState (nRoundsArrayTR n a) = Spec.nRounds n (arrayState a) := by
-  induction n generalizing a with
-  | zero => rfl
-  | succ n ih =>
-      change arrayState (nRoundsArrayTR n (doubleRoundArray a)) =
-        Spec.nRounds n (Spec.doubleRound (arrayState a))
-      rw [ih _ (doubleRoundArray_size a hsize), doubleRoundArray_correct a hsize]
-
 theorem nRoundsState_correct (n : Nat) (s : ValidState) :
     toSpecState (nRoundsState n s) = Spec.nRounds n (toSpecState s) := by
   induction n generalizing s with
@@ -308,10 +299,6 @@ theorem addArrays_correct (s1 s2 : ValidState) :
   simp only [addArrays, Array.getElem_zipWith]
   rw [Array.bounded_eq_unbounded, Array.bounded_eq_unbounded]
 
-theorem addArraysArray_correct (a b : StateArray) (ha : a.size = 16) (hb : b.size = 16) :
-    arrayState (addArrays a b) = Spec.addStates (arrayState a) (arrayState b) := by
-  exact addArrays_correct ⟨a, ha⟩ ⟨b, hb⟩
-
 /-!
 ══════════════════════════════════════════════════════════════════════════════
  INSPECTABLE THEOREMS — PRIMARY REVIEW SURFACE
@@ -329,19 +316,14 @@ theorem block_correct (key : Key) (counter : Spec.Word) (nonce : Nonce) :
     toSpecState (blockArray key counter nonce) =
       Spec.block (keyToSpec key) counter (nonceToSpec nonce) := by
   let initial := initStateArray key counter nonce
-  let finalArr := nRoundsArrayTR 10 initial.arr
-  have hfinalSize : finalArr.size = 16 := nRoundsArrayTR_size 10 initial.arr initial.size_eq
-  simp only [blockArray]
-  change arrayState (addArrays finalArr initial.arr) = _
-  calc
-    _ = Spec.addStates (arrayState finalArr) (arrayState initial.arr) :=
-      addArraysArray_correct finalArr initial.arr hfinalSize initial.size_eq
-    _ = _ := by
-      rw [nRoundsArrayTR_correct 10 initial.arr initial.size_eq]
-      have hinitial : arrayState initial.arr = toSpecState initial := rfl
-      rw [hinitial]
-      rw [initStateArray_matches_spec]
-      simp only [Spec.block]
+  let final := nRoundsState 10 initial
+  have hb : blockArray key counter nonce =
+      ⟨addArrays final.arr initial.arr,
+        addArrays_size final.arr initial.arr final.size_eq initial.size_eq⟩ := rfl
+  rw [hb]
+  rw [addArrays_correct final initial, nRoundsState_correct,
+    initStateArray_matches_spec]
+  rfl
 
 /-! ### Serialization correctness -/
 
@@ -379,10 +361,17 @@ theorem encrypt_correct (key : Key) (nonce : Nonce) (msg : Array UInt8) :
   apply Array.ext
   · simp [encrypt_size, Spec.encrypt]
   · intro i h₁ h₂
-    simp only [encrypt, encryptBlocks, Spec.encrypt, Array.getElem_ofFn]
+    simp only [encrypt, encryptBlocks, encryptCore, Spec.encrypt, Array.getElem_ofFn]
     have himsg : i < msg.size := by simpa [encrypt_size] using h₁
     have hib : i / 64 < (msg.size + 63) / 64 := by omega
-    simp only [generateKeystreamBlocks, Array.getElem_ofFn]
+    rw [← Array.bounded_eq_unbounded
+      (generateKeystreamBlocks key nonce ((msg.size + 63) / 64)) (i / 64) (by
+        simp [generateKeystreamBlocks, hib])]
+    rw [generateKeystreamBlocks_correct key nonce ((msg.size + 63) / 64)
+      ⟨i / 64, hib⟩]
+    rw [← Array.bounded_eq_unbounded
+      (keystreamBlock key nonce ((i / 64).toUInt32 + 1)) (i % 64) (by
+        rw [keystreamBlock_size]; omega)]
     let j : Fin 64 := ⟨i % 64, by omega⟩
     have hk := keystreamBlock_correct key nonce ((i / 64).toUInt32 + 1) j
     simp only [j] at hk

@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500">
+<rect width="100%" height="100%" fill="white"/>
+<style>text { font-family: sans-serif; fill: #222; }</style>
+<text x="400" y="27" text-anchor="middle" font-size="20">ChaCha20 encryption performance</text>
+<line x1="75" y1="50" x2="75" y2="435" stroke="#555"/>
+<line x1="75" y1="435" x2="775" y2="435" stroke="#555"/>
+<text x="75.0" y="465" text-anchor="middle" font-size="12">64 B</text>
+<text x="215.0" y="465" text-anchor="middle" font-size="12">256 B</text>
+<text x="355.0" y="465" text-anchor="middle" font-size="12">1 KiB</text>
+<text x="495.0" y="465" text-anchor="middle" font-size="12">4 KiB</text>
+<text x="635.0" y="465" text-anchor="middle" font-size="12">16 KiB</text>
+<text x="775.0" y="465" text-anchor="middle" font-size="12">64 KiB</text>
+<line x1="75" y1="435.0" x2="775" y2="435.0" stroke="#ddd"/>
+<text x="67" y="439.0" text-anchor="end" font-size="12">0</text>
+<line x1="75" y1="358.0" x2="775" y2="358.0" stroke="#ddd"/>
+<text x="67" y="362.0" text-anchor="end" font-size="12">0.299</text>
+<line x1="75" y1="281.0" x2="775" y2="281.0" stroke="#ddd"/>
+<text x="67" y="285.0" text-anchor="end" font-size="12">0.597</text>
+<line x1="75" y1="204.0" x2="775" y2="204.0" stroke="#ddd"/>
+<text x="67" y="208.0" text-anchor="end" font-size="12">0.896</text>
+<line x1="75" y1="127.0" x2="775" y2="127.0" stroke="#ddd"/>
+<text x="67" y="131.0" text-anchor="end" font-size="12">1.19</text>
+<line x1="75" y1="50.0" x2="775" y2="50.0" stroke="#ddd"/>
+<text x="67" y="54.0" text-anchor="end" font-size="12">1.49</text>
+<polyline points="75.0,434.6 215.0,433.7 355.0,429.6 495.0,413.3 635.0,347.9 775.0,85.0" fill="none" stroke="#d1495b" stroke-width="3"/>
+<circle cx="75.0" cy="434.6" r="4" fill="#d1495b"/>
+<circle cx="215.0" cy="433.7" r="4" fill="#d1495b"/>
+<circle cx="355.0" cy="429.6" r="4" fill="#d1495b"/>
+<circle cx="495.0" cy="413.3" r="4" fill="#d1495b"/>
+<circle cx="635.0" cy="347.9" r="4" fill="#d1495b"/>
+<circle cx="775.0" cy="85.0" r="4" fill="#d1495b"/>
+<polyline points="75.0,434.6 215.0,433.7 355.0,429.7 495.0,413.6 635.0,351.6 775.0,102.7" fill="none" stroke="#167d9a" stroke-width="3"/>
+<circle cx="75.0" cy="434.6" r="4" fill="#167d9a"/>
+<circle cx="215.0" cy="433.7" r="4" fill="#167d9a"/>
+<circle cx="355.0" cy="429.7" r="4" fill="#167d9a"/>
+<circle cx="495.0" cy="413.6" r="4" fill="#167d9a"/>
+<circle cx="635.0" cy="351.6" r="4" fill="#167d9a"/>
+<circle cx="775.0" cy="102.7" r="4" fill="#167d9a"/>
+<line x1="535" y1="25" x2="560" y2="25" stroke="#d1495b" stroke-width="3"/><text x="567" y="29" font-size="12">Raw-Rounds</text>
+<line x1="665" y1="25" x2="690" y2="25" stroke="#167d9a" stroke-width="3"/><text x="697" y="29" font-size="12">Bounded-Access</text>
+<text x="400" y="490" text-anchor="middle" font-size="13">Input size</text>
+<text x="17" y="250" text-anchor="middle" font-size="13" transform="rotate(-90 17 250)">Median time (ms)</text>
+</svg>

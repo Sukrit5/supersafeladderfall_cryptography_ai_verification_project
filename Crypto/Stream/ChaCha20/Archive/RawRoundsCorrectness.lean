@@ -11,7 +11,7 @@
 -/
 
 import Crypto.Stream.ChaCha20.Spec
-import Crypto.Stream.ChaCha20.Impl
+import Crypto.Stream.ChaCha20.Archive.RawRoundsImpl
 
 namespace Crypto.ChaCha20
 
@@ -379,10 +379,17 @@ theorem encrypt_correct (key : Key) (nonce : Nonce) (msg : Array UInt8) :
   apply Array.ext
   · simp [encrypt_size, Spec.encrypt]
   · intro i h₁ h₂
-    simp only [encrypt, encryptBlocks, Spec.encrypt, Array.getElem_ofFn]
+    simp only [encrypt, encryptBlocks, encryptCore, Spec.encrypt, Array.getElem_ofFn]
     have himsg : i < msg.size := by simpa [encrypt_size] using h₁
     have hib : i / 64 < (msg.size + 63) / 64 := by omega
-    simp only [generateKeystreamBlocks, Array.getElem_ofFn]
+    rw [← Array.bounded_eq_unbounded
+      (generateKeystreamBlocks key nonce ((msg.size + 63) / 64)) (i / 64) (by
+        simp [generateKeystreamBlocks, hib])]
+    rw [generateKeystreamBlocks_correct key nonce ((msg.size + 63) / 64)
+      ⟨i / 64, hib⟩]
+    rw [← Array.bounded_eq_unbounded
+      (keystreamBlock key nonce ((i / 64).toUInt32 + 1)) (i % 64) (by
+        rw [keystreamBlock_size]; omega)]
     let j : Fin 64 := ⟨i % 64, by omega⟩
     have hk := keystreamBlock_correct key nonce ((i / 64).toUInt32 + 1) j
     simp only [j] at hk

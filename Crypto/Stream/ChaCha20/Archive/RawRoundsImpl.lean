@@ -282,17 +282,7 @@ def encryptCore (msg : Array UInt8) (blocks : Array (Array UInt8)) : Array UInt8
 def encryptBlocks (key : Key) (nonce : Nonce) (msg : Array UInt8) : Array UInt8 :=
   let numBlocks := (msg.size + 63) / 64
   let blocks := generateKeystreamBlocks key nonce numBlocks
-  Array.ofFn (n := msg.size) fun i =>
-    have hblockIndex : i.val / 64 < blocks.size := by
-      simp only [blocks, generateKeystreamBlocks, Array.size_ofFn]
-      omega
-    let block := blocks[i.val / 64]'hblockIndex
-    have hblock : block = keystreamBlock key nonce ((i.val / 64).toUInt32 + 1) := by
-      simp [block, blocks, generateKeystreamBlocks]
-    have hbyte : i.val % 64 < block.size := by
-      rw [hblock, keystreamBlock_size]
-      omega
-    msg[i.val] ^^^ block[i.val % 64]'hbyte
+  encryptCore msg blocks
 
 /-- Public encryption entry point. -/
 def encrypt (key : Key) (nonce : Nonce) (msg : Array UInt8) : Array UInt8 :=
@@ -324,7 +314,7 @@ def decryptList (key : Key) (nonce : Nonce) (msg : List UInt8) : List UInt8 :=
 
 theorem encrypt_size (key : Key) (nonce : Nonce) (msg : Array UInt8) :
     (encrypt key nonce msg).size = msg.size := by
-  simp [encrypt, encryptBlocks]
+  simp [encrypt, encryptBlocks, encryptCore]
 
 theorem decrypt_size (key : Key) (nonce : Nonce) (msg : Array UInt8) :
     (decrypt key nonce msg).size = msg.size :=

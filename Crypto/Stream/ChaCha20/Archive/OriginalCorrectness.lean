@@ -11,7 +11,7 @@
 -/
 
 import Crypto.Stream.ChaCha20.Spec
-import Crypto.Stream.ChaCha20.Impl
+import Crypto.Stream.ChaCha20.Archive.OriginalImpl
 
 namespace Crypto.ChaCha20
 
@@ -278,15 +278,6 @@ theorem doubleRoundArray_correct (a : StateArray) (hsize : a.size = 16) :
   rw [diagonalRoundArray_correct _ (columnRoundArray_size a hsize),
     columnRoundArray_correct a hsize]
 
-theorem nRoundsArrayTR_correct (n : Nat) (a : StateArray) (hsize : a.size = 16) :
-    arrayState (nRoundsArrayTR n a) = Spec.nRounds n (arrayState a) := by
-  induction n generalizing a with
-  | zero => rfl
-  | succ n ih =>
-      change arrayState (nRoundsArrayTR n (doubleRoundArray a)) =
-        Spec.nRounds n (Spec.doubleRound (arrayState a))
-      rw [ih _ (doubleRoundArray_size a hsize), doubleRoundArray_correct a hsize]
-
 theorem nRoundsState_correct (n : Nat) (s : ValidState) :
     toSpecState (nRoundsState n s) = Spec.nRounds n (toSpecState s) := by
   induction n generalizing s with
@@ -308,10 +299,6 @@ theorem addArrays_correct (s1 s2 : ValidState) :
   simp only [addArrays, Array.getElem_zipWith]
   rw [Array.bounded_eq_unbounded, Array.bounded_eq_unbounded]
 
-theorem addArraysArray_correct (a b : StateArray) (ha : a.size = 16) (hb : b.size = 16) :
-    arrayState (addArrays a b) = Spec.addStates (arrayState a) (arrayState b) := by
-  exact addArrays_correct ⟨a, ha⟩ ⟨b, hb⟩
-
 /-!
 ══════════════════════════════════════════════════════════════════════════════
  INSPECTABLE THEOREMS — PRIMARY REVIEW SURFACE
@@ -329,19 +316,14 @@ theorem block_correct (key : Key) (counter : Spec.Word) (nonce : Nonce) :
     toSpecState (blockArray key counter nonce) =
       Spec.block (keyToSpec key) counter (nonceToSpec nonce) := by
   let initial := initStateArray key counter nonce
-  let finalArr := nRoundsArrayTR 10 initial.arr
-  have hfinalSize : finalArr.size = 16 := nRoundsArrayTR_size 10 initial.arr initial.size_eq
-  simp only [blockArray]
-  change arrayState (addArrays finalArr initial.arr) = _
-  calc
-    _ = Spec.addStates (arrayState finalArr) (arrayState initial.arr) :=
-      addArraysArray_correct finalArr initial.arr hfinalSize initial.size_eq
-    _ = _ := by
-      rw [nRoundsArrayTR_correct 10 initial.arr initial.size_eq]
-      have hinitial : arrayState initial.arr = toSpecState initial := rfl
-      rw [hinitial]
-      rw [initStateArray_matches_spec]
-      simp only [Spec.block]
+  let final := nRoundsState 10 initial
+  have hb : blockArray key counter nonce =
+      ⟨addArrays final.arr initial.arr,
+        addArrays_size final.arr initial.arr final.size_eq initial.size_eq⟩ := rfl
+  rw [hb]
+  rw [addArrays_correct final initial, nRoundsState_correct,
+    initStateArray_matches_spec]
+  rfl
 
 /-! ### Serialization correctness -/
 
@@ -364,41 +346,56 @@ theorem keystreamBlock_correct (key : Key) (nonce : Nonce) (counter : Spec.Word)
   simp only [keystreamBlock]
   rw [stateToBytesArray_correct, block_correct]
 
-/-- The precomputation table contains the requested counter's block. -/
-theorem generateKeystreamBlocks_correct (key : Key) (nonce : Nonce)
-    (numBlocks : Nat) (i : Fin numBlocks) :
-    (generateKeystreamBlocks key nonce numBlocks)[i.val]'(by simp [generateKeystreamBlocks]) =
-      keystreamBlock key nonce (i.val.toUInt32 + 1) := by
-  simp [generateKeystreamBlocks]
+/-! ### Cache and complete encryption correctness -/
 
-/-- **MAIN THEOREM 3 — ENCRYPTION CORRECTNESS**
+/-- Semantic invariant for a populated keystream cache. -/
+def CacheMatches (key : Key) (nonce : Nonce) (bytes : Array UInt8) (blockNum : Spec.Word) : Prop :=
+  bytes = keystreamBlock key nonce blockNum
+
+/-- **MAIN THEOREM 3 — CACHE CORRECTNESS**
+    On both a cache hit and a cache miss, selection returns exactly the requested
+    keystream block and records its counter. -/
+theorem selectKeystream_correct (key : Key) (nonce : Nonce) (current cached : Spec.Word)
+    (ks : Array UInt8) (hcache : ks.size = 0 ∨ CacheMatches key nonce ks cached) :
+    (selectKeystream key nonce current ks cached).1 = keystreamBlock key nonce current ∧
+    (selectKeystream key nonce current ks cached).2 = current := by
+  unfold selectKeystream
+  split
+  · exact ⟨rfl, rfl⟩
+  · rename_i hhit
+    have hcounter : current = cached := by
+      by_cases heq : current = cached
+      · exact heq
+      · exact False.elim (hhit (Or.inl (by simp [heq])))
+    subst cached
+    rcases hcache with hempty | hmatches
+    · exact False.elim (hhit (Or.inr hempty))
+    · exact ⟨by simpa [CacheMatches] using hmatches, rfl⟩
+
+/-- **MAIN THEOREM 4 — ENCRYPTION CORRECTNESS**
     Complete array encryption is identical to the whole-message specification
     for every key, nonce, and message. -/
 theorem encrypt_correct (key : Key) (nonce : Nonce) (msg : Array UInt8) :
     encrypt key nonce msg = Spec.encrypt (keyToSpec key) (nonceToSpec nonce) msg := by
   apply Array.ext
-  · simp [encrypt_size, Spec.encrypt]
+  · simp [encrypt, Spec.encrypt]
   · intro i h₁ h₂
-    simp only [encrypt, encryptBlocks, Spec.encrypt, Array.getElem_ofFn]
-    have himsg : i < msg.size := by simpa [encrypt_size] using h₁
-    have hib : i / 64 < (msg.size + 63) / 64 := by omega
-    simp only [generateKeystreamBlocks, Array.getElem_ofFn]
+    simp only [encrypt, Spec.encrypt, Array.getElem_ofFn]
     let j : Fin 64 := ⟨i % 64, by omega⟩
     have hk := keystreamBlock_correct key nonce ((i / 64).toUInt32 + 1) j
     simp only [j] at hk
     rw [hk]
     rfl
 
-/-- **MAIN THEOREM 4 — FULL ROUNDTRIP**
+/-- **MAIN THEOREM 5 — FULL ROUNDTRIP**
     Decrypting a complete encrypted array recovers the original array as an
     equality of contents, not merely an equality of lengths. -/
 theorem roundtrip (key : Key) (nonce : Nonce) (msg : Array UInt8) :
     decrypt key nonce (encrypt key nonce msg) = msg := by
-  rw [decrypt, encrypt_correct, encrypt_correct]
   apply Array.ext
-  · simp [Spec.encrypt]
+  · simp [decrypt, encrypt]
   · intro i h₁ h₂
-    simp only [Spec.encrypt, Array.getElem_ofFn]
+    simp only [decrypt, encrypt, Array.getElem_ofFn]
     exact UInt8.xor_self_inverse _ _
 
 /-! ### Single byte roundtrip -/

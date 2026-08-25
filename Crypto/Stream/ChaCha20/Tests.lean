@@ -157,6 +157,16 @@ def zeroNonce : Nonce :=
   let decrypted := decryptList testKey2 testNonce2 encrypted
   (msg.length, encrypted.length, decrypted == msg)
 
+-- Exercise empty, partial, exact, and adjacent multi-block boundaries.
+#eval!
+  let lengths := [0, 1, 63, 64, 65, 127, 128, 129, 200]
+  lengths.map fun n =>
+    let msg := List.replicate n (n.toUInt8 ^^^ 0x5a)
+    let encrypted := encryptList testKey2 testNonce2 msg
+    let decrypted := decryptList testKey2 testNonce2 encrypted
+    (n, encrypted.length == n, decrypted == msg)
+-- Expected: every pair of checks is true.
+
 /-! ## Verbose Test Output -/
 
 #eval IO.println "=== ChaCha20 Test Results ==="
