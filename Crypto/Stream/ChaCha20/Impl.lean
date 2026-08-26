@@ -10,7 +10,7 @@
   4. A public encryption path whose control flow depends only on message length
 -/
 
-import Crypto.Stream.ChaCha20.Spec
+import Crypto.Stream.ChaCha20.Types
 
 namespace Crypto.ChaCha20
 
@@ -25,16 +25,6 @@ abbrev StateArray := Array Word
 structure ValidState where
   arr : StateArray
   size_eq : arr.size = 16
-
-/-! ## Key and Nonce types -/
-
-structure Key where
-  words : Array Word
-  size_eq : words.size = 8
-
-structure Nonce where
-  words : Array Word
-  size_eq : words.size = 3
 
 /-! ## Constants (same as spec) -/
 

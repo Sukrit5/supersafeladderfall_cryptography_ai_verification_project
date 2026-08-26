@@ -8,3 +8,4 @@ import Crypto.Char
 import Crypto.ModArith
 import Crypto.Classical.Vigenere
 import Crypto.Stream
+import Crypto.AEAD

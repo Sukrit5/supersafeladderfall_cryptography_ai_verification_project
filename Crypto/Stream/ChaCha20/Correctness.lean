@@ -69,12 +69,10 @@ theorem fromSpecState_toSpecState (s : Spec.State) :
 /-! ### Key and Nonce conversion -/
 
 /-- Convert implementation Key to spec Key -/
-def keyToSpec (k : Key) : Spec.Key := fun i =>
-  k.words[i.val]!
+def keyToSpec (k : Key) : Spec.Key := k.toSpec
 
 /-- Convert implementation Nonce to spec Nonce -/
-def nonceToSpec (n : Nonce) : Spec.Nonce := fun i =>
-  n.words[i.val]!
+def nonceToSpec (n : Nonce) : Spec.Nonce := n.toSpec
 
 /-! ### State initialization proof -/
 
@@ -82,7 +80,8 @@ def nonceToSpec (n : Nonce) : Spec.Nonce := fun i =>
 theorem initStateArray_correct (key : Key) (counter : Spec.Word) (nonce : Nonce) (i : Fin 16) :
     (initStateArray key counter nonce).arr[i.val]! =
     Spec.initState (keyToSpec key) counter (nonceToSpec nonce) i := by
-  simp only [initStateArray, Spec.initState, keyToSpec, nonceToSpec, Key.get, Nonce.get]
+  simp only [initStateArray, Spec.initState, keyToSpec, nonceToSpec, Key.toSpec,
+    Nonce.toSpec, Key.get, Nonce.get]
   -- Don't unfold constants to preserve equality
   rcases i with ⟨i, hi⟩
   match i, hi with
