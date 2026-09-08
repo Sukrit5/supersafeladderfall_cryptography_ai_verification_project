@@ -1,21 +1,31 @@
 #!/usr/bin/env python3
-"""Create a simple ChaCha20 timing line graph using only Python's stdlib."""
+"""Create benchmark timing graphs using only Python's stdlib."""
 
+import argparse
 import csv
+import html
 import statistics
-import sys
 from collections import defaultdict
 
-if len(sys.argv) != 4:
-    raise SystemExit("usage: plot_results.py FIRST.csv SECOND.csv OUTPUT.svg")
-
-input_files = sys.argv[1:3]
-output_file = sys.argv[3]
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("first")
+parser.add_argument("second")
+parser.add_argument("output")
+parser.add_argument("--versions", nargs=2, help="Select two versions from the input CSVs")
+parser.add_argument("--labels", nargs=2, help="Legend labels in version order")
+parser.add_argument("--title", default="ChaCha20 encryption performance")
+parser.add_argument("--subtitle", default="")
+parser.add_argument("--footer", default="")
+args = parser.parse_args()
+input_files = [args.first, args.second]
+output_file = args.output
 samples = defaultdict(list)
-versions = []
+versions = list(args.versions or [])
 for filename in input_files:
     with open(filename, newline="") as file:
         for row in csv.DictReader(file):
+            if args.versions and row["version"] not in args.versions:
+                continue
             if row["version"] not in versions:
                 versions.append(row["version"])
             key = row["version"], int(row["size_bytes"])
@@ -25,35 +35,40 @@ if len(versions) != 2:
     raise SystemExit("the two CSV files must contain two distinct versions")
 
 sizes = sorted({size for _, size in samples})
+if not sizes or any(not samples[version, size] for version in versions for size in sizes):
+    raise SystemExit("both versions must have samples at every input size")
 times = {
     version: [statistics.median(samples[version, size]) for size in sizes]
     for version in versions
 }
 
-width, height = 800, 500
-left, top, right, bottom = 75, 50, 25, 65
+width, height = 800, 560
+left, top, right, bottom = 75, 115, 25, 105
 plot_width = width - left - right
 plot_height = height - top - bottom
 maximum = max(max(values) for values in times.values()) * 1.1
 
 def x(index):
-    return left + index * plot_width / (len(sizes) - 1)
+    return left + index * plot_width / max(1, len(sizes) - 1)
 
 def y(milliseconds):
     return top + plot_height * (maximum - milliseconds) / maximum
 
 svg = [
-    f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">',
+    f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img">',
+    f'<title>{html.escape(args.title)}</title>',
+    f'<desc>{html.escape(args.subtitle)} Median time per call; lower is faster. {html.escape(args.footer)}</desc>',
     '<rect width="100%" height="100%" fill="white"/>',
     '<style>text { font-family: sans-serif; fill: #222; }</style>',
-    '<text x="400" y="27" text-anchor="middle" font-size="20">ChaCha20 encryption performance</text>',
+    f'<text x="400" y="29" text-anchor="middle" font-size="20">{html.escape(args.title)}</text>',
+    f'<text x="400" y="51" text-anchor="middle" font-size="12">{html.escape(args.subtitle)}</text>',
     f'<line x1="{left}" y1="{top}" x2="{left}" y2="{top + plot_height}" stroke="#555"/>',
     f'<line x1="{left}" y1="{top + plot_height}" x2="{left + plot_width}" y2="{top + plot_height}" stroke="#555"/>',
 ]
 
 for index, size in enumerate(sizes):
     label = f"{size} B" if size < 1024 else f"{size // 1024} KiB"
-    svg.append(f'<text x="{x(index):.1f}" y="{height - 35}" text-anchor="middle" font-size="12">{label}</text>')
+    svg.append(f'<text x="{x(index):.1f}" y="{top + plot_height + 25}" text-anchor="middle" font-size="12">{label}</text>')
 
 for tick in range(6):
     value = maximum * tick / 5
@@ -66,13 +81,17 @@ for version in versions:
     points = " ".join(f"{x(i):.1f},{y(value):.1f}" for i, value in enumerate(times[version]))
     svg.append(f'<polyline points="{points}" fill="none" stroke="{colors[version]}" stroke-width="3"/>')
     for i, value in enumerate(times[version]):
-        svg.append(f'<circle cx="{x(i):.1f}" cy="{y(value):.1f}" r="4" fill="{colors[version]}"/>')
+        svg.append(f'<circle cx="{x(i):.1f}" cy="{y(value):.1f}" r="4" fill="{colors[version]}"><title>{html.escape(version)}: {sizes[i]} bytes, {value:.6f} ms, {len(samples[version, sizes[i]])} samples</title></circle>')
+
+labels = args.labels or [version.title() for version in versions]
+for index, version in enumerate(versions):
+    legend_x = 160 + 300 * index
+    svg.append(f'<line x1="{legend_x}" y1="82" x2="{legend_x + 25}" y2="82" stroke="{colors[version]}" stroke-width="3"/><text x="{legend_x + 34}" y="86" font-size="13">{html.escape(labels[index])}</text>')
 
 svg += [
-    f'<line x1="535" y1="25" x2="560" y2="25" stroke="{colors[versions[0]]}" stroke-width="3"/><text x="567" y="29" font-size="12">{versions[0].title()}</text>',
-    f'<line x1="665" y1="25" x2="690" y2="25" stroke="{colors[versions[1]]}" stroke-width="3"/><text x="697" y="29" font-size="12">{versions[1].title()}</text>',
-    '<text x="400" y="490" text-anchor="middle" font-size="13">Input size</text>',
+    '<text x="400" y="509" text-anchor="middle" font-size="13">Input size (equally spaced benchmark sizes)</text>',
     '<text x="17" y="250" text-anchor="middle" font-size="13" transform="rotate(-90 17 250)">Median time (ms)</text>',
+    f'<text x="400" y="542" text-anchor="middle" font-size="11">{html.escape(args.footer)}</text>',
     '</svg>',
 ]
 

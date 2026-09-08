@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="560" viewBox="0 0 800 560" role="img">
+<title>Poly1305 — AEAD authentication path</title>
+<desc>Same Spec.macData layout and Spec.poly1305 function Median time per call; lower is faster. Median of 18 samples · Includes MAC-buffer construction · Excludes ChaCha20 · Lower is faster</desc>
+<rect width="100%" height="100%" fill="white"/>
+<style>text { font-family: sans-serif; fill: #222; }</style>
+<text x="400" y="29" text-anchor="middle" font-size="20">Poly1305 — AEAD authentication path</text>
+<text x="400" y="51" text-anchor="middle" font-size="12">Same Spec.macData layout and Spec.poly1305 function</text>
+<line x1="75" y1="115" x2="75" y2="455" stroke="#555"/>
+<line x1="75" y1="455" x2="775" y2="455" stroke="#555"/>
+<text x="75.0" y="480" text-anchor="middle" font-size="12">0 B</text>
+<text x="162.5" y="480" text-anchor="middle" font-size="12">15 B</text>
+<text x="250.0" y="480" text-anchor="middle" font-size="12">16 B</text>
+<text x="337.5" y="480" text-anchor="middle" font-size="12">17 B</text>
+<text x="425.0" y="480" text-anchor="middle" font-size="12">64 B</text>
+<text x="512.5" y="480" text-anchor="middle" font-size="12">256 B</text>
+<text x="600.0" y="480" text-anchor="middle" font-size="12">1 KiB</text>
+<text x="687.5" y="480" text-anchor="middle" font-size="12">4 KiB</text>
+<text x="775.0" y="480" text-anchor="middle" font-size="12">16 KiB</text>
+<line x1="75" y1="455.0" x2="775" y2="455.0" stroke="#ddd"/>
+<text x="67" y="459.0" text-anchor="end" font-size="12">0</text>
+<line x1="75" y1="387.0" x2="775" y2="387.0" stroke="#ddd"/>
+<text x="67" y="391.0" text-anchor="end" font-size="12">0.0524</text>
+<line x1="75" y1="319.0" x2="775" y2="319.0" stroke="#ddd"/>
+<text x="67" y="323.0" text-anchor="end" font-size="12">0.105</text>
+<line x1="75" y1="251.0" x2="775" y2="251.0" stroke="#ddd"/>
+<text x="67" y="255.0" text-anchor="end" font-size="12">0.157</text>
+<line x1="75" y1="183.0" x2="775" y2="183.0" stroke="#ddd"/>
+<text x="67" y="187.0" text-anchor="end" font-size="12">0.21</text>
+<line x1="75" y1="115.0" x2="775" y2="115.0" stroke="#ddd"/>
+<text x="67" y="119.0" text-anchor="end" font-size="12">0.262</text>
+<polyline points="75.0,446.5 162.5,446.3 250.0,446.2 337.5,446.0 425.0,445.6 512.5,442.8 600.0,431.4 687.5,380.1 775.0,145.9" fill="none" stroke="#d1495b" stroke-width="3"/>
+<circle cx="75.0" cy="446.5" r="4" fill="#d1495b"><title>word_auth: 0 bytes, 0.006531 ms, 18 samples</title></circle>
+<circle cx="162.5" cy="446.3" r="4" fill="#d1495b"><title>word_auth: 15 bytes, 0.006700 ms, 18 samples</title></circle>
+<circle cx="250.0" cy="446.2" r="4" fill="#d1495b"><title>word_auth: 16 bytes, 0.006790 ms, 18 samples</title></circle>
+<circle cx="337.5" cy="446.0" r="4" fill="#d1495b"><title>word_auth: 17 bytes, 0.006919 ms, 18 samples</title></circle>
+<circle cx="425.0" cy="445.6" r="4" fill="#d1495b"><title>word_auth: 64 bytes, 0.007276 ms, 18 samples</title></circle>
+<circle cx="512.5" cy="442.8" r="4" fill="#d1495b"><title>word_auth: 256 bytes, 0.009404 ms, 18 samples</title></circle>
+<circle cx="600.0" cy="431.4" r="4" fill="#d1495b"><title>word_auth: 1024 bytes, 0.018203 ms, 18 samples</title></circle>
+<circle cx="687.5" cy="380.1" r="4" fill="#d1495b"><title>word_auth: 4096 bytes, 0.057805 ms, 18 samples</title></circle>
+<circle cx="775.0" cy="145.9" r="4" fill="#d1495b"><title>word_auth: 16384 bytes, 0.238400 ms, 18 samples</title></circle>
+<polyline points="75.0,453.0 162.5,452.9 250.0,452.9 337.5,452.8 425.0,452.8 512.5,452.2 600.0,449.8 687.5,440.4 775.0,402.3" fill="none" stroke="#167d9a" stroke-width="3"/>
+<circle cx="75.0" cy="453.0" r="4" fill="#167d9a"><title>machine_auth: 0 bytes, 0.001558 ms, 18 samples</title></circle>
+<circle cx="162.5" cy="452.9" r="4" fill="#167d9a"><title>machine_auth: 15 bytes, 0.001609 ms, 18 samples</title></circle>
+<circle cx="250.0" cy="452.9" r="4" fill="#167d9a"><title>machine_auth: 16 bytes, 0.001626 ms, 18 samples</title></circle>
+<circle cx="337.5" cy="452.8" r="4" fill="#167d9a"><title>machine_auth: 17 bytes, 0.001662 ms, 18 samples</title></circle>
+<circle cx="425.0" cy="452.8" r="4" fill="#167d9a"><title>machine_auth: 64 bytes, 0.001696 ms, 18 samples</title></circle>
+<circle cx="512.5" cy="452.2" r="4" fill="#167d9a"><title>machine_auth: 256 bytes, 0.002195 ms, 18 samples</title></circle>
+<circle cx="600.0" cy="449.8" r="4" fill="#167d9a"><title>machine_auth: 1024 bytes, 0.003999 ms, 18 samples</title></circle>
+<circle cx="687.5" cy="440.4" r="4" fill="#167d9a"><title>machine_auth: 4096 bytes, 0.011289 ms, 18 samples</title></circle>
+<circle cx="775.0" cy="402.3" r="4" fill="#167d9a"><title>machine_auth: 16384 bytes, 0.040666 ms, 18 samples</title></circle>
+<line x1="160" y1="82" x2="185" y2="82" stroke="#d1495b" stroke-width="3"/><text x="194" y="86" font-size="13">Previous: list MAC buffer</text>
+<line x1="460" y1="82" x2="485" y2="82" stroke="#167d9a" stroke-width="3"/><text x="494" y="86" font-size="13">New: array MAC buffer</text>
+<text x="400" y="509" text-anchor="middle" font-size="13">Input size (equally spaced benchmark sizes)</text>
+<text x="17" y="250" text-anchor="middle" font-size="13" transform="rotate(-90 17 250)">Median time (ms)</text>
+<text x="400" y="542" text-anchor="middle" font-size="11">Median of 18 samples · Includes MAC-buffer construction · Excludes ChaCha20 · Lower is faster</text>
+</svg>

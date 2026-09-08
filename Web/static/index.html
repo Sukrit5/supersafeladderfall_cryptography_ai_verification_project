@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Encrypt and decrypt locally with ChaCha20-Poly1305, ChaCha20, and Vigenère. Powered by Lean.">
+  <title>Cipher Studio · Lean Crypto</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Cipher Studio home"><span class="brand-mark tudor-rose" aria-hidden="true"></span> Cipher Studio<span class="brand-divider">/</span><span class="brand-sub">Lean Crypto</span></a>
+    <span class="local-badge"><span class="dot"></span> Running locally</span>
+  </header>
+  <main>
+    <div class="penwork penwork-left" aria-hidden="true"></div>
+    <div class="penwork penwork-right" aria-hidden="true"></div>
+    <section class="intro">
+      <div class="heraldic-crest" aria-hidden="true"><span class="tudor-rose"></span></div>
+      <h1>Encryption, <em>made simple.</em></h1>
+      <p class="intro-copy">Choose a cipher. Add a message and key.</p>
+      <div class="illuminated-divider" aria-hidden="true"><span>❧</span><i></i><b>✧</b><i></i><span>❧</span></div>
+    </section>
+    <section class="workbench" aria-label="Encryption workbench">
+      <div class="bench-header"><span><span class="tiny-square"></span> ENCRYPT & DECRYPT</span><span class="bench-detail">LOCAL WORKSPACE</span></div>
+      <div class="workspace">
+        <form id="cipher-form" class="input-panel" autocomplete="off">
+          <div class="section-label"><span>01</span> Choose a cipher</div>
+          <div class="cipher-options">
+            <label class="cipher-choice aead-choice"><input type="radio" name="cipher" value="chacha20-poly1305" checked><span><strong>ChaCha20-Poly1305 <span class="recommended">DEFAULT</span></strong><small>Authenticated encryption · detects tampering</small></span><span class="radio-dot"></span></label>
+            <label class="cipher-choice"><input type="radio" name="cipher" value="chacha20"><span><strong>ChaCha20</strong><small>Modern stream cipher</small></span><span class="radio-dot"></span></label>
+            <label class="cipher-choice"><input type="radio" name="cipher" value="vigenere"><span><strong>Vigenère</strong><small>Classical letter cipher</small></span><span class="radio-dot"></span></label>
+          </div>
+          <div class="operation-control" aria-label="Operation"><button type="button" id="encrypt-mode" aria-pressed="true">Encrypt</button><button type="button" id="decrypt-mode" aria-pressed="false">Decrypt</button></div>
+          <div class="section-label field-heading"><label id="message-label" for="message"><span>02</span> Your message</label><button class="text-button" type="button" id="example">Load example ↗</button></div>
+          <textarea id="message" placeholder="Enter your message…" rows="5" spellcheck="false" aria-describedby="message-help" maxlength="131072"></textarea>
+          <div class="field-meta"><span id="message-help">Text is encoded as UTF-8.</span><span id="message-count">0 bytes</span></div>
+          <div id="normalized" class="normalized" hidden></div>
+          <div class="section-label field-heading"><label for="key"><span>03</span> Your key</label><button class="text-button" type="button" id="generate-key">Generate key ↗</button></div>
+          <input id="key" type="text" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="64 hexadecimal digits" aria-describedby="key-help" maxlength="4096" required>
+          <p class="field-help" id="key-help">32 bytes · 64 hex digits. Save this key to decrypt your message.</p>
+          <div id="nonce-group">
+            <div class="nonce-heading"><label for="nonce">Nonce</label><label class="auto-nonce"><input id="auto-nonce" type="checkbox" checked> Fresh nonce each time</label></div>
+            <input id="nonce" type="text" spellcheck="false" autocapitalize="off" aria-describedby="nonce-help" placeholder="Generated when you encrypt" maxlength="24" readonly>
+            <p class="field-help" id="nonce-help">12 bytes · Keep the nonce with the ciphertext. Never reuse it with the same key.</p>
+          </div>
+          <div id="aad-group">
+            <div class="nonce-heading"><label for="aad">Associated data <span class="optional">(optional)</span></label><select id="aad-encoding" aria-label="Associated data encoding"><option value="text">UTF-8 text</option><option value="hex">Hex bytes</option></select></div>
+            <textarea id="aad" rows="2" spellcheck="false" placeholder="e.g. message ID or document title" maxlength="131072" aria-describedby="aad-help"></textarea>
+            <p class="field-help" id="aad-help">Authenticated, not encrypted. Use exactly the same data when decrypting. Up to 64 KiB.</p>
+          </div>
+          <div id="tag-group" hidden>
+            <div class="nonce-heading"><label for="tag">Authentication tag</label></div>
+            <input id="tag" type="text" spellcheck="false" autocapitalize="off" placeholder="32 hexadecimal digits" maxlength="32" aria-describedby="tag-help">
+            <p class="field-help" id="tag-help">Paste the 16-byte tag saved with your ciphertext.</p>
+          </div>
+          <div id="error" class="error" role="alert" hidden></div>
+          <button class="submit-button" id="submit" type="submit"><span id="submit-label">Encrypt message</span><span aria-hidden="true">↗</span></button>
+          <p class="local-note">Processed only on your computer.</p>
+        </form>
+        <section class="output-panel" aria-labelledby="result-title">
+          <div class="result-heading"><div class="section-label"><span>04</span> <h2 id="result-title">Result</h2></div><span class="output-badge" id="output-badge">HEX OUTPUT</span></div>
+          <div id="empty-state" class="empty-state"><div class="cipher-art" aria-hidden="true"><span class="key-ornament"></span></div><h3>Your result appears here</h3><p>Enter a message and key to begin.</p></div>
+          <div id="result-content" hidden>
+            <div class="result-status"><span class="dot"></span><span id="result-status">Encryption complete</span><span id="result-size"></span></div>
+            <pre id="result" tabindex="0" aria-label="Cipher result"></pre>
+            <div id="result-nonce-group" class="result-nonce" hidden><span>NONCE · SAVE WITH CIPHERTEXT</span><code id="result-nonce"></code></div>
+            <div id="result-tag-group" class="result-nonce" hidden><span>AUTHENTICATION TAG · SAVE WITH CIPHERTEXT</span><code id="result-tag"></code></div>
+            <p id="packet-help" class="field-help" hidden>Download saves the ciphertext, nonce, tag, and associated data together. Keep your key separately.</p>
+            <p id="result-notice" class="field-help" hidden></p>
+            <div class="result-actions"><button class="secondary-button" id="copy" type="button">Copy result</button><button class="text-button" id="download" type="button">Download ↗</button></div>
+            <button class="text-button reverse-button" id="reverse" type="button">Decrypt this result ↗</button>
+          </div>
+          <div class="cipher-info"><p class="eyebrow" id="info-heading">ABOUT / CHACHA20-POLY1305</p><p id="info-copy">ChaCha20 encrypts the message. Poly1305 authenticates the ciphertext and associated data before decryption releases any plaintext.</p><div class="info-tags" id="info-tags"><span>256-bit key</span><span>128-bit tag</span><span>AEAD</span></div><p class="scope-note" id="scope-note">Decryption requires the original key, nonce, associated data, and tag. Authentication failure releases no plaintext.</p></div>
+        </section>
+      </div>
+    </section>
+    <footer><span><strong>Built with proofs.</strong> Cipher implementations checked against Lean specifications.</span><span>The web adapter and native compilation are outside the proof boundary.</span></footer>
+    <div class="sr-only" id="announcement" role="status" aria-live="polite"></div>
+  </main>
+</body>
+</html>

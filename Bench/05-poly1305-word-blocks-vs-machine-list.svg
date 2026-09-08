@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="560" viewBox="0 0 800 560" role="img">
+<title>Poly1305 — machine-word setup and finalization</title>
+<desc>Both implementations proven equal to the same Spec.poly1305 Median time per call; lower is faster. Median of 18 samples · Preconstructed lists · Lean 4.32.2 / macOS arm64 · Lower is faster</desc>
+<rect width="100%" height="100%" fill="white"/>
+<style>text { font-family: sans-serif; fill: #222; }</style>
+<text x="400" y="29" text-anchor="middle" font-size="20">Poly1305 — machine-word setup and finalization</text>
+<text x="400" y="51" text-anchor="middle" font-size="12">Both implementations proven equal to the same Spec.poly1305</text>
+<line x1="75" y1="115" x2="75" y2="455" stroke="#555"/>
+<line x1="75" y1="455" x2="775" y2="455" stroke="#555"/>
+<text x="75.0" y="480" text-anchor="middle" font-size="12">0 B</text>
+<text x="162.5" y="480" text-anchor="middle" font-size="12">15 B</text>
+<text x="250.0" y="480" text-anchor="middle" font-size="12">16 B</text>
+<text x="337.5" y="480" text-anchor="middle" font-size="12">17 B</text>
+<text x="425.0" y="480" text-anchor="middle" font-size="12">64 B</text>
+<text x="512.5" y="480" text-anchor="middle" font-size="12">256 B</text>
+<text x="600.0" y="480" text-anchor="middle" font-size="12">1 KiB</text>
+<text x="687.5" y="480" text-anchor="middle" font-size="12">4 KiB</text>
+<text x="775.0" y="480" text-anchor="middle" font-size="12">16 KiB</text>
+<line x1="75" y1="455.0" x2="775" y2="455.0" stroke="#ddd"/>
+<text x="67" y="459.0" text-anchor="end" font-size="12">0</text>
+<line x1="75" y1="387.0" x2="775" y2="387.0" stroke="#ddd"/>
+<text x="67" y="391.0" text-anchor="end" font-size="12">0.00718</text>
+<line x1="75" y1="319.0" x2="775" y2="319.0" stroke="#ddd"/>
+<text x="67" y="323.0" text-anchor="end" font-size="12">0.0144</text>
+<line x1="75" y1="251.0" x2="775" y2="251.0" stroke="#ddd"/>
+<text x="67" y="255.0" text-anchor="end" font-size="12">0.0215</text>
+<line x1="75" y1="183.0" x2="775" y2="183.0" stroke="#ddd"/>
+<text x="67" y="187.0" text-anchor="end" font-size="12">0.0287</text>
+<line x1="75" y1="115.0" x2="775" y2="115.0" stroke="#ddd"/>
+<text x="67" y="119.0" text-anchor="end" font-size="12">0.0359</text>
+<polyline points="75.0,412.8 162.5,386.6 250.0,406.1 337.5,404.9 425.0,405.6 512.5,402.1 600.0,389.5 687.5,337.9 775.0,145.9" fill="none" stroke="#d1495b" stroke-width="3"/>
+<circle cx="75.0" cy="412.8" r="4" fill="#d1495b"><title>word_blocks: 0 bytes, 0.004457 ms, 18 samples</title></circle>
+<circle cx="162.5" cy="386.6" r="4" fill="#d1495b"><title>word_blocks: 15 bytes, 0.007215 ms, 18 samples</title></circle>
+<circle cx="250.0" cy="406.1" r="4" fill="#d1495b"><title>word_blocks: 16 bytes, 0.005159 ms, 18 samples</title></circle>
+<circle cx="337.5" cy="404.9" r="4" fill="#d1495b"><title>word_blocks: 17 bytes, 0.005285 ms, 18 samples</title></circle>
+<circle cx="425.0" cy="405.6" r="4" fill="#d1495b"><title>word_blocks: 64 bytes, 0.005215 ms, 18 samples</title></circle>
+<circle cx="512.5" cy="402.1" r="4" fill="#d1495b"><title>word_blocks: 256 bytes, 0.005582 ms, 18 samples</title></circle>
+<circle cx="600.0" cy="389.5" r="4" fill="#d1495b"><title>word_blocks: 1024 bytes, 0.006911 ms, 18 samples</title></circle>
+<circle cx="687.5" cy="337.9" r="4" fill="#d1495b"><title>word_blocks: 4096 bytes, 0.012355 ms, 18 samples</title></circle>
+<circle cx="775.0" cy="145.9" r="4" fill="#d1495b"><title>word_blocks: 16384 bytes, 0.032615 ms, 18 samples</title></circle>
+<polyline points="75.0,452.1 162.5,432.4 250.0,451.9 337.5,451.1 425.0,450.9 512.5,447.9 600.0,436.0 687.5,385.4 775.0,193.0" fill="none" stroke="#167d9a" stroke-width="3"/>
+<circle cx="75.0" cy="452.1" r="4" fill="#167d9a"><title>machine_list: 0 bytes, 0.000301 ms, 18 samples</title></circle>
+<circle cx="162.5" cy="432.4" r="4" fill="#167d9a"><title>machine_list: 15 bytes, 0.002383 ms, 18 samples</title></circle>
+<circle cx="250.0" cy="451.9" r="4" fill="#167d9a"><title>machine_list: 16 bytes, 0.000332 ms, 18 samples</title></circle>
+<circle cx="337.5" cy="451.1" r="4" fill="#167d9a"><title>machine_list: 17 bytes, 0.000415 ms, 18 samples</title></circle>
+<circle cx="425.0" cy="450.9" r="4" fill="#167d9a"><title>machine_list: 64 bytes, 0.000428 ms, 18 samples</title></circle>
+<circle cx="512.5" cy="447.9" r="4" fill="#167d9a"><title>machine_list: 256 bytes, 0.000746 ms, 18 samples</title></circle>
+<circle cx="600.0" cy="436.0" r="4" fill="#167d9a"><title>machine_list: 1024 bytes, 0.002005 ms, 18 samples</title></circle>
+<circle cx="687.5" cy="385.4" r="4" fill="#167d9a"><title>machine_list: 4096 bytes, 0.007341 ms, 18 samples</title></circle>
+<circle cx="775.0" cy="193.0" r="4" fill="#167d9a"><title>machine_list: 16384 bytes, 0.027643 ms, 18 samples</title></circle>
+<line x1="160" y1="82" x2="185" y2="82" stroke="#d1495b" stroke-width="3"/><text x="194" y="86" font-size="13">Previous: word blocks</text>
+<line x1="460" y1="82" x2="485" y2="82" stroke="#167d9a" stroke-width="3"/><text x="494" y="86" font-size="13">New: machine list</text>
+<text x="400" y="509" text-anchor="middle" font-size="13">Input size (equally spaced benchmark sizes)</text>
+<text x="17" y="250" text-anchor="middle" font-size="13" transform="rotate(-90 17 250)">Median time (ms)</text>
+<text x="400" y="542" text-anchor="middle" font-size="11">Median of 18 samples · Preconstructed lists · Lean 4.32.2 / macOS arm64 · Lower is faster</text>
+</svg>

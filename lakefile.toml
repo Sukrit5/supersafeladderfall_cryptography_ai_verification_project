@@ -10,6 +10,10 @@ name = "crypto"
 root = "Main"
 
 [[lean_exe]]
+name = "crypto_web"
+root = "Web.Main"
+
+[[lean_exe]]
 name = "chacha20_bench"
 root = "Bench.ChaCha20"
 
@@ -24,3 +28,7 @@ root = "Bench.ChaCha20Precomputed"
 [[lean_exe]]
 name = "chacha20_bench_raw_rounds"
 root = "Bench.ChaCha20RawRounds"
+
+[[lean_exe]]
+name = "poly1305_bench"
+root = "Bench.Poly1305"

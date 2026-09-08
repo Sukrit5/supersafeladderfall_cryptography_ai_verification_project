@@ -1,4 +1,7 @@
 import Crypto.AEAD.ChaCha20Poly1305.Impl
+import Crypto.AEAD.ChaCha20Poly1305.FastCorrectness
+import Crypto.AEAD.ChaCha20Poly1305.WordBlocksCorrectness
+import Crypto.AEAD.ChaCha20Poly1305.MachineArrayCorrectness
 import Crypto.Stream.ChaCha20.Correctness
 
 namespace Crypto.ChaCha20Poly1305
@@ -72,9 +75,43 @@ theorem Limbs26.reduce_correct (n : Nat) :
   apply Nat.lt_trans (Nat.mod_lt _ (by simp [poly1305Prime]))
   simp [poly1305Prime, limbBase]
 
+/-- Coefficients discarded by the radix-2^26 wraparound. -/
+private def convolutionOverflow (a r : Limbs26) : Nat :=
+  let a1 := a.l1.toNat; let a2 := a.l2.toNat
+  let a3 := a.l3.toNat; let a4 := a.l4.toNat
+  let r1 := r.l1.toNat; let r2 := r.l2.toNat
+  let r3 := r.l3.toNat; let r4 := r.l4.toNat
+  let c5 := a1*r4 + a2*r3 + a3*r2 + a4*r1
+  let c6 := a2*r4 + a3*r3 + a4*r2
+  let c7 := a3*r4 + a4*r3
+  let c8 := a4*r4
+  c5 + limbBase * (c6 + limbBase * (c7 + limbBase * c8))
+
+/-- Exact algebraic decomposition behind the `2^130 ≡ 5` fold. -/
+theorem limbConvolution_decomposition (a r : Limbs26) :
+    a.toNat * r.toNat = limbConvolution a r +
+      poly1305Prime * convolutionOverflow a r := by
+  simp only [Limbs26.toNat, limbConvolution, convolutionOverflow]
+  simp only [limbBase, poly1305Prime, Nat.add_mul, Nat.mul_add]
+  simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+  omega
+
+theorem limbConvolution_mod (a r : Limbs26) :
+    limbConvolution a r % Spec.poly1305Prime =
+      (a.toNat * r.toNat) % Spec.poly1305Prime := by
+  rw [limbConvolution_decomposition, poly1305Prime_correct]
+  simp [Nat.add_mod]
+
+theorem Limbs26.mulMod_correct (a r : Limbs26) :
+    (a.mulMod r).toNat = (a.toNat * r.toNat) % Spec.poly1305Prime := by
+  simp [Limbs26.mulMod, Limbs26.reduce_correct, limbConvolution_mod]
+
 theorem polyStep_correct (r : Nat) (acc : Limbs26) (chunk : List UInt8) :
     (polyStep r acc chunk).toNat = Spec.polyStep r acc.toNat chunk := by
-  simp [polyStep, Spec.polyStep, Limbs26.reduce_correct, bytesToNatLE_correct]
+  simp only [polyStep, Spec.polyStep, Limbs26.mulMod_correct, Limbs26.reduce_correct,
+    bytesToNatLE_correct]
+  simp [Nat.add_mod, Nat.mul_mod, Nat.add_comm, Nat.add_left_comm,
+    Nat.mul_comm]
 
 theorem polyBlocks_correct (r : Nat) (message : List UInt8) (acc : Limbs26) :
     (polyBlocks r message acc).toNat = Spec.polyBlocks r message acc.toNat := by
@@ -98,15 +135,26 @@ theorem zero_limbs : (Limbs26.ofNat 0).toNat = 0 := by
 
 theorem poly1305_correct (message otk : List UInt8) :
     poly1305 message otk = Spec.poly1305 message otk := by
-  simp only [poly1305, Spec.poly1305]
-  rw [bytesToNatLE_correct, bytesToNatLE_correct, clampMask_correct,
-    natToBytesLE_correct, polyBlocks_correct, zero_limbs]
+  exact Machine.poly1305_correct message otk
+
+theorem poly1305Array_correct (message otk : Array UInt8) :
+    poly1305Array message otk = Spec.poly1305 message.toList otk.toList :=
+  Machine.poly1305Array_correct message otk
+
+theorem encodeMacDataArray_correct (aad ciphertext : Array UInt8) :
+    (encodeMacDataArray aad ciphertext).toList = encodeMacData aad ciphertext := by
+  simp [encodeMacDataArray, encodeMacData, padding16, List.append_assoc]
+
+theorem authenticate_correct (aad ciphertext : Array UInt8) (otk : List UInt8) :
+    authenticate aad ciphertext otk = poly1305 (encodeMacData aad ciphertext) otk := by
+  rw [authenticate, poly1305Array_correct, encodeMacDataArray_correct, poly1305_correct]
 
 /-- The implementation constructs precisely the inspectable specification packet. -/
 theorem seal_correct (key : Key) (nonce : Nonce) (aad plaintext : Array UInt8) :
     sealPacket key nonce aad plaintext =
       Spec.sealPacket key.toSpec nonce.toSpec aad plaintext := by
   simp only [sealPacket, Spec.sealPacket]
+  rw [authenticate_correct]
   rw [payload_correct, encodeMacData_correct, oneTimeKey_correct, poly1305_correct]
 
 theorem poly1305_tag_length (message otk : List UInt8) :
@@ -134,6 +182,7 @@ theorem open_failure_releases_nothing (key : Key) (nonce : Nonce) (aad : Array U
       (Spec.oneTimeKey key.toSpec nonce.toSpec)) :
     open? key nonce aad packet = none := by
   unfold open?
+  rw [authenticate_correct]
   rw [encodeMacData_correct, oneTimeKey_correct, poly1305_correct]
   have hlen := poly1305_tag_length (Spec.macData aad packet.ciphertext)
     (Spec.oneTimeKey key.toSpec nonce.toSpec)
@@ -157,6 +206,7 @@ theorem open_failure_releases_nothing (key : Key) (nonce : Nonce) (aad : Array U
 theorem open_correct (key : Key) (nonce : Nonce) (aad : Array UInt8) (packet : Sealed) :
     open? key nonce aad packet = Spec.open? key.toSpec nonce.toSpec aad packet := by
   unfold open? Spec.open?
+  rw [authenticate_correct]
   rw [encodeMacData_correct, oneTimeKey_correct, poly1305_correct]
   let expected := Spec.poly1305 (Spec.macData aad packet.ciphertext)
     (Spec.oneTimeKey key.toSpec nonce.toSpec)
@@ -181,7 +231,7 @@ theorem open_correct (key : Key) (nonce : Nonce) (aad : Array UInt8) (packet : S
 theorem open_seal (key : Key) (nonce : Nonce) (aad plaintext : Array UInt8) :
     open? key nonce aad (sealPacket key nonce aad plaintext) = some plaintext := by
   unfold open? sealPacket
-  simp only
+  simp only [authenticate_correct]
   have hlen := poly1305_tag_length_impl
     (encodeMacData aad (Crypto.ChaCha20.encrypt key nonce plaintext)) (oneTimeKey key nonce)
   rw [if_pos]

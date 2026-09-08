@@ -1,4 +1,6 @@
 import Crypto.AEAD.ChaCha20Poly1305.Spec
+import Crypto.AEAD.ChaCha20Poly1305.WordBlocks
+import Crypto.AEAD.ChaCha20Poly1305.Machine
 import Crypto.Stream.ChaCha20.Impl
 
 namespace Crypto.ChaCha20Poly1305
@@ -30,6 +32,12 @@ def encodeMacData (aad ciphertext : Array UInt8) : List UInt8 :=
   aad.toList ++ padding16 aad.size ++
   ciphertext.toList ++ padding16 ciphertext.size ++
   encodeLE64 aad.size ++ encodeLE64 ciphertext.size
+
+/-- Construct authenticated bytes directly in array storage. -/
+def encodeMacDataArray (aad ciphertext : Array UInt8) : Array UInt8 :=
+  aad ++ Array.replicate ((16-aad.size%16)%16) 0 ++
+  ciphertext ++ Array.replicate ((16-ciphertext.size%16)%16) 0 ++
+  (encodeLE64 aad.size).toArray ++ (encodeLE64 ciphertext.size).toArray
 
 /-! ## Five 26-bit limbs -/
 
@@ -75,9 +83,30 @@ def Limbs26.toNat (x : Limbs26) : Nat :=
 /-- Canonical reduction into five 26-bit machine-word limbs. -/
 def Limbs26.reduce (n : Nat) : Limbs26 := Limbs26.ofNat (n % poly1305Prime)
 
+/-! The convolution below is the usual radix-2^26 Poly1305 multiplication.
+Products whose degree is at least five wrap around with a factor of five,
+using `(2^26)^5 = 2^130 ≡ 5 (mod 2^130-5)`.  It never constructs the
+full 260-bit product. -/
+
+def limbConvolution (a r : Limbs26) : Nat :=
+  let a0 := a.l0.toNat; let a1 := a.l1.toNat; let a2 := a.l2.toNat
+  let a3 := a.l3.toNat; let a4 := a.l4.toNat
+  let r0 := r.l0.toNat; let r1 := r.l1.toNat; let r2 := r.l2.toNat
+  let r3 := r.l3.toNat; let r4 := r.l4.toNat
+  let d0 := a0*r0 + 5*(a1*r4 + a2*r3 + a3*r2 + a4*r1)
+  let d1 := a0*r1 + a1*r0 + 5*(a2*r4 + a3*r3 + a4*r2)
+  let d2 := a0*r2 + a1*r1 + a2*r0 + 5*(a3*r4 + a4*r3)
+  let d3 := a0*r3 + a1*r2 + a2*r1 + a3*r0 + 5*(a4*r4)
+  let d4 := a0*r4 + a1*r3 + a2*r2 + a3*r1 + a4*r0
+  d0 + limbBase * (d1 + limbBase * (d2 + limbBase * (d3 + limbBase * d4)))
+
+def Limbs26.mulMod (a r : Limbs26) : Limbs26 :=
+  Limbs26.reduce (limbConvolution a r)
+
 def polyStep (r : Nat) (acc : Limbs26) (chunk : List UInt8) : Limbs26 :=
-  Limbs26.reduce
-    ((acc.toNat + bytesToNatLE chunk + 256 ^ chunk.length) * r)
+  let block := bytesToNatLE chunk + 256 ^ chunk.length
+  let added := Limbs26.reduce (acc.toNat + block)
+  added.mulMod (Limbs26.reduce r)
 
 def polyBlocks (r : Nat) : List UInt8 → Limbs26 → Limbs26
   | [], acc => acc
@@ -88,18 +117,21 @@ def polyBlocks (r : Nat) : List UInt8 → Limbs26 → Limbs26
 termination_by bytes _ => bytes.length
 decreasing_by simp_wf; omega
 
-/-- Independent Poly1305 implementation. The accumulator is stored as five
-    canonical 26-bit `UInt64` limbs; the first version uses `Nat` for the
-    multiply/reduce boundary so its refinement proof does not assume overflow
-    facts about machine multiplication. -/
+/-- Poly1305 with machine-word key setup, multiplication, carries, and finalization.
+    The final short message block retains the reference decoder. -/
 def poly1305 (message oneTimeKey : List UInt8) : List UInt8 :=
-  let r := bytesToNatLE (oneTimeKey.take 16) &&& clampMask
-  let s := bytesToNatLE (oneTimeKey.drop 16 |>.take 16)
-  natToBytesLE 16 (((polyBlocks r message (Limbs26.ofNat 0)).toNat + s) % (2 ^ 128))
+  Machine.poly1305 message oneTimeKey
+
+/-- Array API avoids converting the message into a linked list. -/
+def poly1305Array (message oneTimeKey : Array UInt8) : List UInt8 :=
+  Machine.poly1305Array message oneTimeKey
+
+def authenticate (aad ciphertext : Array UInt8) (oneTimeKey : List UInt8) : List UInt8 :=
+  poly1305Array (encodeMacDataArray aad ciphertext) oneTimeKey.toArray
 
 def sealPacket (key : Key) (nonce : Nonce) (aad plaintext : Array UInt8) : Sealed :=
   let ciphertext := Crypto.ChaCha20.encrypt key nonce plaintext
-  ⟨ciphertext, poly1305 (encodeMacData aad ciphertext) (oneTimeKey key nonce)⟩
+  ⟨ciphertext, authenticate aad ciphertext (oneTimeKey key nonce)⟩
 
 /-- Functional full-tag comparison. Constant-time behavior is outside this Lean model. -/
 def tagMatches (supplied expected : List UInt8) : Bool :=
@@ -107,7 +139,7 @@ def tagMatches (supplied expected : List UInt8) : Bool :=
 
 /-- Authenticate before decrypting. A failure contains no plaintext value. -/
 def open? (key : Key) (nonce : Nonce) (aad : Array UInt8) (packet : Sealed) : Option (Array UInt8) :=
-  let expected := poly1305 (encodeMacData aad packet.ciphertext) (oneTimeKey key nonce)
+  let expected := authenticate aad packet.ciphertext (oneTimeKey key nonce)
   if tagMatches packet.tag expected then
     some (Crypto.ChaCha20.decrypt key nonce packet.ciphertext)
   else none
